@@ -150,8 +150,8 @@ code-push app add <appName> <os> <platform>
 If your app targets both iOS and Android, please *create separate apps for each platform* with CodePush (see the note below for details). This way, you can manage and release updates to them separately, which in the long run, also tends to make things simpler. The naming convention that most folks use is to suffix the app name with `-iOS` and `-Android`. For example:
 
 ```
-code-push app add MyApp-Android
-code-push app add MyApp-iOS
+code-push app add MyApp-Android android cordova
+code-push app add MyApp-iOS ios react-native
 ```
 
 *NOTE: Using the same app for iOS and Android may cause installation exceptions because the CodePush update package produced for iOS will have different content from the update produced for Android.*
@@ -226,7 +226,7 @@ From the CodePush perspective, an app is simply a named grouping for one or more
 
 *NOTE: As you'll see below, the `release`, `promote` and `rollback` commands require both an app name and a deployment name is order to work, because it is the combination of the two that uniquely identifies a point of distribution (e.g. I want to release an update of my iOS app to my beta testers).*
 
-Whenever an app is registered with the CodePush service, it includes two deployments by default: `Staging` and `Production`. This allows you to immediately begin releasing updates to an internal environment, where you can thoroughly test each update before pushing them out to your end-users. This workflow is critical for ensuring your releases are ready for mass-consumption, and is a practice that has been established in the web for a long time.
+Whenever an app is registered using the CLI, the CodePush service includes two deployments by default: `Staging` and `Production`. This allows you to immediately begin releasing updates to an internal environment (Staging), where you can thoroughly test each update before pushing them out to your end-users (Production). This workflow is critical for ensuring your releases are ready for mass-consumption, and is a practice that has been established in the web for a long time.
 
 If having a staging and production version of your app is enough to meet your needs, then you don't need to do anything else. However, if you want an alpha, dev, etc. deployment, you can easily create them using the following command:
 
