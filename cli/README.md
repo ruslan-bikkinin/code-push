@@ -14,6 +14,7 @@ CodePush is a cloud service that enables Cordova and React Native developers to 
     * [Proxy Support](#proxy-support)
 * [App Management](#app-management)
    * [App Collaboration](#app-collaboration)
+   * [Ownership Transfer](#ownership-transfer)
    * [Deployment Management](#deployment-management)
 * [Releasing Updates](#releasing-updates)
     * [Releasing Updates (General)](#releasing-updates-general)
@@ -219,6 +220,15 @@ If at any time you want to list all collaborators that have been added to an app
 ```shell
 code-push collaborator ls <appName>
 ```
+### Ownership Transfer
+
+The update to version 2.0.0.0 saw the temporary removal of the `app transfer` commmand. You may still transfer ownership of your applications, but it takes a visit to [Mobile Center](https://mobile.azure.com) and a couple of steps.
+
+1. Go to to https://mobile.azure.com and create a new organization.
+2. Invite the person you to whom you wish to transfer the app to the organization. Once they have accepted the invitation change their access permissions. If you make them an admin they will be able to see all the apps in the org; otherwise they will see only the apps where they specifically have been added as a collaborator.
+3. Navigate to your app and click on the "Manage App" button (top right when on the "Getting Started" page for the app). Hit the Transfer button there to transfer the app to the org. Note that currently this operation can not be reversed, although this will change in the near future.
+4. Once your invitee has accepted, select the organization that you created and remove yourself from it.
+
 
 ### Deployment Management
 
