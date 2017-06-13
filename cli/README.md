@@ -112,14 +112,6 @@ code-push login --accessKey <accessKey>
 
 When logging in via this method, the access key will not be automatically invalidated on logout, and can be used in future sessions until it is explicitly removed from the CodePush server or expires. However, it is still recommended that you log out once your session is complete, in order to remove your credentials from disk.
 
-Finally, if at any point you need to change a key's name and/or expiration date, you can use the following command:
-
-```shell
-code-push access-key patch <accessKeyName> --name "new name" --ttl 10d
-```
-
-*NOTE: When patching the TTL of an existing access key, its expiration date will be set relative to the current time, with no regard for its previous value.*
-
 ### Proxy Support
 
 By default, the `login` command will automatically look for a system-wide proxy, specified via an `HTTPS_PROXY` or `HTTP_PROXY` environment variable, and use that to connect to the CodePush server. If you'd like to disable this behavior, and have the CLI establish a direct connection to CodePush, simply specify the `--noProxy` parameter when logging in:
