@@ -74,9 +74,12 @@ export class SdkStub {
         });
     }
 
-    public addApp(name: string): Promise<codePush.App> {
+    public addApp(name: string, os: string, platform: string, manuallyProvisionDeployments: boolean = false): Promise<codePush.App> {
         return Q(<codePush.App>{
-            name: name
+            name: name,
+            os: os,
+            platform: platform,
+            manuallyProvisionDeployments: manuallyProvisionDeployments
         });
     }
 
@@ -349,6 +352,7 @@ describe("CLI", () => {
     });
 
 
+    /*
     it("accessKeyPatch updates access key with new ttl", (done: MochaDone): void => {
         var ttl = 10000;
         var command: cli.IAccessKeyPatchCommand = {
@@ -391,6 +395,7 @@ describe("CLI", () => {
                 done();
             });
     });
+    */
 
     it("accessKeyList lists access key name and expires fields", (done: MochaDone): void => {
         var command: cli.IAccessKeyListCommand = {
@@ -459,7 +464,9 @@ describe("CLI", () => {
     it("appAdd reports new app name and ID", (done: MochaDone): void => {
         var command: cli.IAppAddCommand = {
             type: cli.CommandType.appAdd,
-            appName: "a"
+            appName: "a",
+            os: "ios",
+            platform: "react-native"
         };
 
         var addApp: Sinon.SinonSpy = sandbox.spy(cmdexec.sdk, "addApp");
@@ -605,7 +612,7 @@ describe("CLI", () => {
             .done((): void => {
                 sinon.assert.calledOnce(addCollaborator);
                 sinon.assert.calledOnce(log);
-                sinon.assert.calledWithExactly(log, "Successfully added \"b@b.com\" as a collaborator to the app \"a\".");
+                sinon.assert.calledWithExactly(log, "Collaborator invitation email for \"a\" sent to \"b@b.com\".");
 
                 done();
             });
@@ -661,7 +668,8 @@ describe("CLI", () => {
         var command: cli.IDeploymentAddCommand = {
             type: cli.CommandType.deploymentAdd,
             appName: "a",
-            deploymentName: "b"
+            deploymentName: "b",
+            default: false
         };
 
         var addDeployment: Sinon.SinonSpy = sandbox.spy(cmdexec.sdk, "addDeployment");
@@ -1386,7 +1394,7 @@ describe("CLI", () => {
                 done(new Error("Did not throw error."));
             })
             .catch((err) => {
-                assert.equal(err.message, "Platform must be either \"android\", \"ios\" or \"windows\".");
+                assert.equal(err.message, "Platform must be \"android\", \"ios\", or \"windows\".");
                 sinon.assert.notCalled(release);
                 sinon.assert.notCalled(spawn);
                 done();

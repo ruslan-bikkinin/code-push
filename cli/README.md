@@ -2,7 +2,7 @@
 
 CodePush is a cloud service that enables Cordova and React Native developers to deploy mobile app updates directly to their users' devices. It works by acting as a central repository that developers can publish updates to (JS, HTML, CSS and images), and that apps can query for updates from (using the provided client SDKs for [Cordova](http://github.com/Microsoft/cordova-plugin-code-push) and [React Native](http://github.com/Microsoft/react-native-code-push)). This allows you to have a more deterministic and direct engagement model with your user base, when addressing bugs and/or adding small features that don't require you to re-build a binary and re-distribute it through the respective app stores.
 
-![CodePush CLI](https://cloud.githubusercontent.com/assets/116461/16246693/2e7df77c-37bb-11e6-9456-e392af7f7b84.png)
+![CodePush CLI](https://cloud.githubusercontent.com/assets/245892/26749409/feb439f6-47d7-11e7-98fd-07d750b856d8.png)
 
 <!-- CLI Catalog -->
 
@@ -14,6 +14,7 @@ CodePush is a cloud service that enables Cordova and React Native developers to 
     * [Proxy Support](#proxy-support)
 * [App Management](#app-management)
    * [App Collaboration](#app-collaboration)
+   * [Ownership Transfer](#ownership-transfer)
    * [Deployment Management](#deployment-management)
 * [Releasing Updates](#releasing-updates)
     * [Releasing Updates (General)](#releasing-updates-general)
@@ -101,8 +102,6 @@ If you need to be able to authenticate against the CodePush service without laun
 code-push access-key add "VSTS Integration"
 ```
 
-By default, access keys expire in 60 days. You can specify a different expiry duration by using the `--ttl` option and passing in a [human readable duration string](https://github.com/jkroso/parse-duration#parsestr) (e.g. "2d" => 2 days, "1h 15 min" => 1 hour and 15 minutes). For security, the key will only be shown once on creation, so remember to save it somewhere if needed!
-
 After creating the new key, you can specify its value using the `--accessKey` flag of the `login` command, which allows you to perform "headless" authentication, as opposed to launching a browser.
 
 ```shell
@@ -110,14 +109,6 @@ code-push login --accessKey <accessKey>
 ```
 
 When logging in via this method, the access key will not be automatically invalidated on logout, and can be used in future sessions until it is explicitly removed from the CodePush server or expires. However, it is still recommended that you log out once your session is complete, in order to remove your credentials from disk.
-
-Finally, if at any point you need to change a key's name and/or expiration date, you can use the following command:
-
-```shell
-code-push access-key patch <accessKeyName> --name "new name" --ttl 10d
-```
-
-*NOTE: When patching the TTL of an existing access key, its expiration date will be set relative to the current time, with no regard for its previous value.*
 
 ### Proxy Support
 
@@ -144,14 +135,14 @@ Additionally, if at any time you want to see what proxy settings (if any) are be
 Before you can deploy any updates, you need to register an app with the CodePush service using the following command:
 
 ```
-code-push app add <appName>
+code-push app add <appName> <os> <platform>
 ```
 
 If your app targets both iOS and Android, please *create separate apps for each platform* with CodePush (see the note below for details). This way, you can manage and release updates to them separately, which in the long run, also tends to make things simpler. The naming convention that most folks use is to suffix the app name with `-iOS` and `-Android`. For example:
 
 ```
-code-push app add MyApp-Android
-code-push app add MyApp-iOS
+code-push app add MyApp-Android android cordova
+code-push app add MyApp-iOS ios react-native
 ```
 
 *NOTE: Using the same app for iOS and Android may cause installation exceptions because the CodePush update package produced for iOS will have different content from the update produced for Android.*
@@ -202,7 +193,6 @@ Once added, all collaborators will immediately have the following permissions wi
 Inversely, that means that an app collaborator cannot do any of the following:
 
 1. Rename or delete the app
-1. Transfer ownership of the app
 1. Create, rename or delete new deployments within the app
 1. Clear a deployment's release history
 1. Add or remove collaborators from the app (*)
@@ -221,15 +211,15 @@ If at any time you want to list all collaborators that have been added to an app
 code-push collaborator ls <appName>
 ```
 
-Finally, if at some point, you (as the app owner) will no longer be working on the app, and you want to transfer it to another developer (or a client), you can run the following command:
+### Ownership Transfer
 
-```shell
-code-push app transfer <appName> <newOwnerEmail>
-```
+The update to version 2.0.0.0 saw the removal of the `app transfer` commmand. You may still transfer ownership of your applications by managing the transfer through an organization. This requires that you visit [Mobile Center](https://mobile.azure.com) and execute a few steps.
 
-*NOTE: Just like with the `code-push collaborator add` command, this expects that the new owner has already registered with CodePush using the specified e-mail address.*
+1. Go to to [https://mobile.azure.com](https://mobile.azure.com) and create a new organization.
+2. Invite the person you to whom you wish to transfer the app to the organization. Once they have accepted the invitation change their access permissions to "Admin". 
+3. Navigate to your app and click on the "Manage App" button (top right when on the "Getting Started" page for the app). Hit the Transfer button there to transfer the app to the org. Note that currently this operation cannot be reversed, although this will change in the future.
+4. Once your invitee has accepted, select the organization that you created and remove yourself from it.
 
-Once confirmed, the specified developer becomes the app's owner and immediately receives the permissions associated with that role. Besides the transfer of ownership, nothing else about the app is modified (e.g. deployments, release history, collaborators). This means that you will still be a collaborator of the app, and therefore, if you want to remove yourself, you simply need to run the `code-push collaborator rm` command after successfully transferring ownership.
 
 ### Deployment Management
 
@@ -237,7 +227,7 @@ From the CodePush perspective, an app is simply a named grouping for one or more
 
 *NOTE: As you'll see below, the `release`, `promote` and `rollback` commands require both an app name and a deployment name is order to work, because it is the combination of the two that uniquely identifies a point of distribution (e.g. I want to release an update of my iOS app to my beta testers).*
 
-Whenever an app is registered with the CodePush service, it includes two deployments by default: `Staging` and `Production`. This allows you to immediately begin releasing updates to an internal environment, where you can thoroughly test each update before pushing them out to your end-users. This workflow is critical for ensuring your releases are ready for mass-consumption, and is a practice that has been established in the web for a long time.
+Whenever an app is registered using the CLI, the CodePush service includes two deployments by default: `Staging` and `Production`. This allows you to immediately begin releasing updates to an internal environment (Staging), where you can thoroughly test each update before pushing them out to your end-users (Production). This workflow is critical for ensuring your releases are ready for mass-consumption, and is a practice that has been established in the web for a long time.
 
 If having a staging and production version of your app is enough to meet your needs, then you don't need to do anything else. However, if you want an alpha, dev, etc. deployment, you can easily create them using the following command:
 
@@ -566,6 +556,8 @@ This specifies the relative path to where the generated JS bundle's sourcemap fi
 #### Output directory parameter
 
 This specifies the relative path to where the assets, JS bundle and sourcemap files should be written. If left unspecified, the assets, JS bundle and sourcemap will be copied to the `/tmp/CodePush` folder.
+
+*NOTE: All contents within specified folder will be deleted before copying*
 
 *NOTE: This parameter can be set using either --outputDir or -o*
 
