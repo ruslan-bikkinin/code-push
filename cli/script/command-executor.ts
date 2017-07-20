@@ -14,13 +14,17 @@ var plist = require("plist");
 var progress = require("progress");
 var prompt = require("prompt");
 import * as Q from "q";
+import * as recursiveFs from "recursive-fs";
 var rimraf = require("rimraf");
 import * as semver from "semver";
 var simctl = require("simctl");
+import slash = require("slash");
 var Table = require("cli-table");
+import * as yazl from "yazl";
 var which = require("which");
 import wordwrap = require("wordwrap");
 import * as cli from "../definitions/cli";
+import * as signingReleaseHook from "./release-hooks/signing";
 import { AccessKey, Account, App, CodePushError, CollaboratorMap, CollaboratorProperties, Deployment, DeploymentMetrics, Headers, Package, PackageInfo, Session, UpdateMetrics } from "code-push/script/types";
 
 var configFilePath: string = path.join(process.env.LOCALAPPDATA || process.env.HOME, ".code-push.config");
@@ -54,7 +58,10 @@ interface ILoginConnectionInfo {
     noProxy?: boolean; // To suppress the environment proxy setting, like HTTP_PROXY
 }
 
-
+interface ReleaseFile {
+    sourceLocation: string;     // The current location of the file on disk
+    targetLocation: string;     // The desired location of the file within the zip
+}
 
 export interface UpdateMetricsWithTotalActive extends UpdateMetrics {
     totalActive: number;
@@ -598,6 +605,18 @@ function fileDoesNotExistOrIsDirectory(filePath: string): boolean {
     } catch (error) {
         return true;
     }
+}
+
+//todo is it safe? maybe we should use guid\uuid generation here?
+function generateRandomFilename(length: number): string {
+    var filename: string = "";
+    var validChar: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for (var i = 0; i < length; i++) {
+        filename += validChar.charAt(Math.floor(Math.random() * validChar.length));
+    }
+
+    return filename;
 }
 
 function getTotalActiveFromDeploymentMetrics(metrics: DeploymentMetrics): number {
@@ -1181,43 +1200,135 @@ export var release = (command: cli.IReleaseCommand): Promise<void> => {
     }
 
     throwForInvalidSemverRange(command.appStoreVersion);
-    var filePath: string = command.package;
-    var isSingleFilePackage: boolean = true;
 
-    if (fs.lstatSync(filePath).isDirectory()) {
-        isSingleFilePackage = false;
-    }
-
-    var lastTotalProgress = 0;
-    var progressBar = new progress("Upload progress:[:bar] :percent :etas", {
-        complete: "=",
-        incomplete: " ",
-        width: 50,
-        total: 100
-    });
-
-    var uploadProgress = (currentProgress: number): void => {
-        progressBar.tick(currentProgress - lastTotalProgress);
-        lastTotalProgress = currentProgress;
-    };
-
-    var updateMetadata: PackageInfo = {
+    // Copy the command so that the original is not modified
+    var currentCommand: cli.IReleaseCommand = {
+        appName: command.appName,
+        appStoreVersion: command.appStoreVersion,
+        deploymentName: command.deploymentName,
         description: command.description,
-        isDisabled: command.disabled,
-        isMandatory: command.mandatory,
-        rollout: command.rollout
+        disabled: command.disabled,
+        mandatory: command.mandatory,
+        package: command.package,
+        rollout: command.rollout,
+        signingKeyPath: command.signingKeyPath,
+        type: command.type
     };
 
-    return sdk.isAuthenticated(true)
-        .then((isAuth: boolean): Promise<void> => {
-            return sdk.release(command.appName, command.deploymentName, filePath, command.appStoreVersion, updateMetadata, uploadProgress);
-        })
-        .then((): void => {
-            log("Successfully released an update containing the \"" + command.package + "\" " + (isSingleFilePackage ? "file" : "directory") + " to the \"" + command.deploymentName + "\" deployment of the \"" + command.appName + "\" app.");
-        })
+    var hooks: cli.ReleaseHook[] = [ signingReleaseHook.default, coreReleaseHook ];
+
+    var releaseHooksPromise = hooks.reduce((accumulatedPromise: Q.Promise<cli.IReleaseCommand>, hook: cli.ReleaseHook) => {
+        return accumulatedPromise
+            .then((modifiedCommand: cli.IReleaseCommand) => {
+                currentCommand = modifiedCommand || currentCommand;
+                return hook(currentCommand, command);
+            });
+    }, Q(currentCommand));
+
+    return releaseHooksPromise
+        .then(() => {})
         .catch((err: CodePushError) => releaseErrorHandler(err, command));
 }
 
+var coreReleaseHook: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand: cli.IReleaseCommand): Promise<cli.IReleaseCommand> => {
+    return Q(<void>null)
+        .then(() => {
+            var releaseFiles: ReleaseFile[] = [];
+
+            if (!fs.lstatSync(currentCommand.package).isDirectory()) {
+                releaseFiles.push({
+                    sourceLocation: currentCommand.package,
+                    targetLocation: path.basename(currentCommand.package)  // Put the file in the root
+                });
+                return Q(releaseFiles);
+            }
+
+            var deferred = Q.defer<ReleaseFile[]>();
+            var directoryPath: string = currentCommand.package;
+            var baseDirectoryPath = path.join(directoryPath, "..");     // For legacy reasons, put the root directory in the zip
+
+            recursiveFs.readdirr(currentCommand.package, (error?: any, directories?: string[], files?: string[]): void => {
+                if (error) {
+                    deferred.reject(error);
+                    return;
+                }
+
+                files.forEach((filePath: string) => {
+                    var relativePath: string = path.relative(baseDirectoryPath, filePath);
+                    // yazl does not like backslash (\) in the metadata path.
+                    relativePath = slash(relativePath);
+                    releaseFiles.push({
+                        sourceLocation: filePath,
+                        targetLocation: relativePath
+                    });
+                });
+
+                deferred.resolve(releaseFiles);
+            });
+
+            return deferred.promise;
+        })
+        .then((releaseFiles: ReleaseFile[]) => {
+            return Promise<string>((resolve: (file: string) => void, reject: (reason: Error) => void): void => {
+
+                var packagePath: string = path.join(process.cwd(), generateRandomFilename(15) + ".zip");
+                var zipFile = new yazl.ZipFile();
+                var writeStream: fs.WriteStream = fs.createWriteStream(packagePath);
+
+                zipFile.outputStream.pipe(writeStream)
+                    .on("error", (error: Error): void => {
+                        reject(error);
+                    })
+                    .on("close", (): void => {
+
+                        resolve(packagePath);
+                    });
+
+                releaseFiles.forEach((releaseFile: ReleaseFile) => {
+                    zipFile.addFile(releaseFile.sourceLocation, releaseFile.targetLocation);
+                });
+
+                zipFile.end();
+            });
+
+        })
+        .then((packagePath: string): Promise<cli.IReleaseCommand> => {
+            var lastTotalProgress = 0;
+            var progressBar = new progress("Upload progress:[:bar] :percent :etas", {
+                complete: "=",
+                incomplete: " ",
+                width: 50,
+                total: 100
+            });
+
+            var uploadProgress = (currentProgress: number): void => {
+                progressBar.tick(currentProgress - lastTotalProgress);
+                lastTotalProgress = currentProgress;
+            };
+
+            var updateMetadata: PackageInfo = {
+                description: currentCommand.description,
+                isDisabled: currentCommand.disabled,
+                isMandatory: currentCommand.mandatory,
+                rollout: currentCommand.rollout
+            };
+
+            return sdk.isAuthenticated(true)
+                .then((isAuth: boolean): Promise<void> => {
+                    return sdk.release(currentCommand.appName, currentCommand.deploymentName, packagePath, currentCommand.appStoreVersion, updateMetadata, uploadProgress);
+                })
+                .then((): void => {
+                    log(`Successfully released an update containing the "${originalCommand.package}" `
+                        + `${fs.lstatSync(originalCommand.package).isDirectory()  ? "directory" : "file"}`
+                        + ` to the "${currentCommand.deploymentName}" deployment of the "${currentCommand.appName}" app.`);
+
+                })
+                .then(() => currentCommand)
+                .finally(() => {
+                    fs.unlinkSync(packagePath);
+                });
+        });
+}
 export var releaseCordova = (command: cli.IReleaseCordovaCommand): Promise<void> => {
     var releaseCommand: cli.IReleaseCommand = <any>command;
     // Check for app and deployment exist before releasing an update.
