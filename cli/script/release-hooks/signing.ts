@@ -45,11 +45,23 @@ export default function sign(command: cli.IReleaseCommand): q.Promise<cli.IRelea
             }
 
             signatureFilePath = path.join(command.package, METADATA_FILE_NAME);
+            var prevSignatureExists = true;
             try {
                 fs.accessSync(signatureFilePath, fs.F_OK);
+            } catch (err) {
+                if (err.code === "ENOENT") {
+                    prevSignatureExists = false;
+                } else {
+                    return q.reject<string>(new Error(
+                        `Could not delete previous release signature at ${signatureFilePath}.
+                        Please, check your access rights.`)
+                    );
+                }
+            }
+
+            if (prevSignatureExists) {
                 console.log(`Deleting previous release signature at ${signatureFilePath}`);
                 rimraf.sync(signatureFilePath);
-            } catch (err) {
             }
 
             return hashUtils.generatePackageHashFromDirectory(command.package, path.join(command.package, ".."));

@@ -225,7 +225,8 @@ export class PackageManifest {
     }
 
     public static normalizePath(filePath: string): string {
-        return filePath.replace("\\", "/");
+        //replace all backslashes coming from cli running on windows machines by slashes
+        return filePath.replace(/\\/g, "/");
     }
 
     public static isIgnored(relativeFilePath: string): boolean {
