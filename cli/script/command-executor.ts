@@ -23,8 +23,9 @@ var Table = require("cli-table");
 import * as yazl from "yazl";
 var which = require("which");
 import wordwrap = require("wordwrap");
+import { CommonUtils } from "./common-utils";
 import * as cli from "../definitions/cli";
-import * as signingReleaseHook from "./release-hooks/signing";
+import { hooks } from "./release-hooks/index";
 import { AccessKey, Account, App, CodePushError, CollaboratorMap, CollaboratorProperties, Deployment, DeploymentMetrics, Headers, Package, PackageInfo, Session, UpdateMetrics } from "code-push/script/types";
 
 var configFilePath: string = path.join(process.env.LOCALAPPDATA || process.env.HOME, ".code-push.config");
@@ -56,11 +57,6 @@ interface ILoginConnectionInfo {
     preserveAccessKeyOnLogout?: boolean;
     proxy?: string; // To specify the proxy url explicitly, other than the environment var (HTTP_PROXY)
     noProxy?: boolean; // To suppress the environment proxy setting, like HTTP_PROXY
-}
-
-interface ReleaseFile {
-    sourceLocation: string;     // The current location of the file on disk
-    targetLocation: string;     // The desired location of the file within the zip
 }
 
 export interface UpdateMetricsWithTotalActive extends UpdateMetrics {
@@ -96,10 +92,10 @@ export var confirm = (message: string = "Are you sure?"): Promise<boolean> => {
             var accepted = result.response && result.response.toLowerCase() === "y";
             var rejected = !result.response || result.response.toLowerCase() === "n";
 
-            if (accepted){
+            if (accepted) {
                 resolve(true);
             } else {
-                if (!rejected){
+                if (!rejected) {
                     console.log("Invalid response: \"" + result.response + "\"");
                 }
                 resolve(false);
@@ -605,18 +601,6 @@ function fileDoesNotExistOrIsDirectory(filePath: string): boolean {
     } catch (error) {
         return true;
     }
-}
-
-//todo is it safe? maybe we should use guid\uuid generation here?
-function generateRandomFilename(length: number): string {
-    var filename: string = "";
-    var validChar: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-    for (var i = 0; i < length; i++) {
-        filename += validChar.charAt(Math.floor(Math.random() * validChar.length));
-    }
-
-    return filename;
 }
 
 function getTotalActiveFromDeploymentMetrics(metrics: DeploymentMetrics): number {
@@ -1215,120 +1199,19 @@ export var release = (command: cli.IReleaseCommand): Promise<void> => {
         type: command.type
     };
 
-    var hooks: cli.ReleaseHook[] = [ signingReleaseHook.default, coreReleaseHook ];
-
     var releaseHooksPromise = hooks.reduce((accumulatedPromise: Q.Promise<cli.IReleaseCommand>, hook: cli.ReleaseHook) => {
         return accumulatedPromise
             .then((modifiedCommand: cli.IReleaseCommand) => {
                 currentCommand = modifiedCommand || currentCommand;
-                return hook(currentCommand, command);
+                return hook(currentCommand, command, sdk);
             });
     }, Q(currentCommand));
 
     return releaseHooksPromise
-        .then(() => {})
+        .then(() => { })
         .catch((err: CodePushError) => releaseErrorHandler(err, command));
 }
 
-var coreReleaseHook: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand: cli.IReleaseCommand): Promise<cli.IReleaseCommand> => {
-    return Q(<void>null)
-        .then(() => {
-            var releaseFiles: ReleaseFile[] = [];
-
-            if (!fs.lstatSync(currentCommand.package).isDirectory()) {
-                releaseFiles.push({
-                    sourceLocation: currentCommand.package,
-                    targetLocation: path.basename(currentCommand.package)  // Put the file in the root
-                });
-                return Q(releaseFiles);
-            }
-
-            var deferred = Q.defer<ReleaseFile[]>();
-            var directoryPath: string = currentCommand.package;
-            var baseDirectoryPath = path.join(directoryPath, "..");     // For legacy reasons, put the root directory in the zip
-
-            recursiveFs.readdirr(currentCommand.package, (error?: any, directories?: string[], files?: string[]): void => {
-                if (error) {
-                    deferred.reject(error);
-                    return;
-                }
-
-                files.forEach((filePath: string) => {
-                    var relativePath: string = path.relative(baseDirectoryPath, filePath);
-                    // yazl does not like backslash (\) in the metadata path.
-                    relativePath = slash(relativePath);
-                    releaseFiles.push({
-                        sourceLocation: filePath,
-                        targetLocation: relativePath
-                    });
-                });
-
-                deferred.resolve(releaseFiles);
-            });
-
-            return deferred.promise;
-        })
-        .then((releaseFiles: ReleaseFile[]) => {
-            return Promise<string>((resolve: (file: string) => void, reject: (reason: Error) => void): void => {
-
-                var packagePath: string = path.join(process.cwd(), generateRandomFilename(15) + ".zip");
-                var zipFile = new yazl.ZipFile();
-                var writeStream: fs.WriteStream = fs.createWriteStream(packagePath);
-
-                zipFile.outputStream.pipe(writeStream)
-                    .on("error", (error: Error): void => {
-                        reject(error);
-                    })
-                    .on("close", (): void => {
-
-                        resolve(packagePath);
-                    });
-
-                releaseFiles.forEach((releaseFile: ReleaseFile) => {
-                    zipFile.addFile(releaseFile.sourceLocation, releaseFile.targetLocation);
-                });
-
-                zipFile.end();
-            });
-
-        })
-        .then((packagePath: string): Promise<cli.IReleaseCommand> => {
-            var lastTotalProgress = 0;
-            var progressBar = new progress("Upload progress:[:bar] :percent :etas", {
-                complete: "=",
-                incomplete: " ",
-                width: 50,
-                total: 100
-            });
-
-            var uploadProgress = (currentProgress: number): void => {
-                progressBar.tick(currentProgress - lastTotalProgress);
-                lastTotalProgress = currentProgress;
-            };
-
-            var updateMetadata: PackageInfo = {
-                description: currentCommand.description,
-                isDisabled: currentCommand.disabled,
-                isMandatory: currentCommand.mandatory,
-                rollout: currentCommand.rollout
-            };
-
-            return sdk.isAuthenticated(true)
-                .then((isAuth: boolean): Promise<void> => {
-                    return sdk.release(currentCommand.appName, currentCommand.deploymentName, packagePath, currentCommand.appStoreVersion, updateMetadata, uploadProgress);
-                })
-                .then((): void => {
-                    log(`Successfully released an update containing the "${originalCommand.package}" `
-                        + `${fs.lstatSync(originalCommand.package).isDirectory()  ? "directory" : "file"}`
-                        + ` to the "${currentCommand.deploymentName}" deployment of the "${currentCommand.appName}" app.`);
-
-                })
-                .then(() => currentCommand)
-                .finally(() => {
-                    fs.unlinkSync(packagePath);
-                });
-        });
-}
 export var releaseCordova = (command: cli.IReleaseCordovaCommand): Promise<void> => {
     var releaseCommand: cli.IReleaseCommand = <any>command;
     // Check for app and deployment exist before releasing an update.
@@ -1503,7 +1386,7 @@ export var releaseReact = (command: cli.IReleaseReactCommand): Promise<void> => 
         });
 }
 
-function validateDeployment(appName: string,  deploymentName: string): Promise<void> {
+function validateDeployment(appName: string, deploymentName: string): Promise<void> {
     return sdk.getDeployment(appName, deploymentName)
         .catch((err: any) => {
             // If we get an error that the deployment doesn't exist (but not the app doesn't exist), then tack on a more descriptive error message telling the user what to do
@@ -1557,16 +1440,16 @@ export var runReactNativeBundleCommand = (bundleName: string, development: boole
     let envNodeArgs: string = process.env.CODE_PUSH_NODE_ARGS;
 
     if (typeof envNodeArgs !== "undefined") {
-      Array.prototype.push.apply(reactNativeBundleArgs, envNodeArgs.trim().split(/\s+/));
+        Array.prototype.push.apply(reactNativeBundleArgs, envNodeArgs.trim().split(/\s+/));
     }
 
     Array.prototype.push.apply(reactNativeBundleArgs, [
-      path.join("node_modules", "react-native", "local-cli", "cli.js"), "bundle",
-      "--assets-dest", outputFolder,
-      "--bundle-output", path.join(outputFolder, bundleName),
-      "--dev", development,
-      "--entry-file", entryFile,
-      "--platform", platform,
+        path.join("node_modules", "react-native", "local-cli", "cli.js"), "bundle",
+        "--assets-dest", outputFolder,
+        "--bundle-output", path.join(outputFolder, bundleName),
+        "--dev", development,
+        "--entry-file", entryFile,
+        "--platform", platform,
     ]);
 
     if (sourcemapOutput) {
@@ -1710,7 +1593,7 @@ function getSdk(accessKey: string, headers: Headers, customServerUrl: string, pr
     Object.getOwnPropertyNames(AccountManager.prototype).forEach((functionName: any) => {
         if (typeof sdk[functionName] === "function") {
             var originalFunction = sdk[functionName];
-            sdk[functionName] = function() {
+            sdk[functionName] = function () {
                 var maybePromise: Promise<any> = originalFunction.apply(sdk, arguments);
                 if (maybePromise && maybePromise.then !== undefined) {
                     maybePromise = maybePromise

@@ -7,6 +7,7 @@ import * as os from "os";
 import * as path from "path";
 import * as q from "q";
 var rimraf = require("rimraf");
+import AccountManager = require("code-push");
 
 var CURRENT_CLAIM_VERSION: string = "1.0.0";
 var METADATA_FILE_NAME: string = ".codepushrelease"
@@ -16,9 +17,9 @@ interface CodeSigningClaims {
     contentHash: string;
 }
 
-export default function sign(command: cli.IReleaseCommand): q.Promise<cli.IReleaseCommand> {
-    if (!command.signingKeyPath) {
-        return q(command);
+var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand?: cli.IReleaseCommand, sdk?: AccountManager): q.Promise<cli.IReleaseCommand> => {
+    if (!currentCommand.signingKeyPath) {
+        return q.resolve<cli.IReleaseCommand>(currentCommand);
     }
 
     var signingKey: Buffer;
@@ -27,24 +28,24 @@ export default function sign(command: cli.IReleaseCommand): q.Promise<cli.IRelea
     return q(<void>null)
         .then(() => {
             try {
-                signingKey = fs.readFileSync(command.signingKeyPath);
+                signingKey = fs.readFileSync(currentCommand.signingKeyPath);
             } catch (err) {
-                return q.reject(new Error(`The path specified for the signing key ("${command.signingKeyPath}") was not valid`));
+                return q.reject(new Error(`The path specified for the signing key ("${currentCommand.signingKeyPath}") was not valid`));
             }
 
-            if (!fs.lstatSync(command.package).isDirectory()) {
+            if (!fs.lstatSync(currentCommand.package).isDirectory()) {
                 // If releasing a single file, copy the file to a temporary 'CodePush' directory in which to publish the release
                 var outputFolderPath: string = path.join(os.tmpdir(), "CodePush");
                 rimraf.sync(outputFolderPath);
                 fs.mkdirSync(outputFolderPath);
 
-                var outputFilePath: string = path.join(outputFolderPath, path.basename(command.package));
-                fs.writeFileSync(outputFilePath, fs.readFileSync(command.package));
+                var outputFilePath: string = path.join(outputFolderPath, path.basename(currentCommand.package));
+                fs.writeFileSync(outputFilePath, fs.readFileSync(currentCommand.package));
 
-                command.package = outputFolderPath;
+                currentCommand.package = outputFolderPath;
             }
 
-            signatureFilePath = path.join(command.package, METADATA_FILE_NAME);
+            signatureFilePath = path.join(currentCommand.package, METADATA_FILE_NAME);
             var prevSignatureExists = true;
             try {
                 fs.accessSync(signatureFilePath, fs.F_OK);
@@ -64,7 +65,7 @@ export default function sign(command: cli.IReleaseCommand): q.Promise<cli.IRelea
                 rimraf.sync(signatureFilePath);
             }
 
-            return hashUtils.generatePackageHashFromDirectory(command.package, path.join(command.package, ".."));
+            return hashUtils.generatePackageHashFromDirectory(currentCommand.package, path.join(currentCommand.package, ".."));
         })
         .then((hash: string) => {
             var claims: CodeSigningClaims = {
@@ -91,9 +92,11 @@ export default function sign(command: cli.IReleaseCommand): q.Promise<cli.IRelea
 
             return deferred.promise;
         })
-        .then(() => command)
+        .then(() => { return currentCommand; })
         .catch((err: Error) => {
             err.message = `Could not sign package: ${err.message}`;
             return q.reject<cli.IReleaseCommand>(err);
-        });
+    });
 }
+
+export = sign;
