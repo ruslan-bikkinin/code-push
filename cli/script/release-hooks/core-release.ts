@@ -21,7 +21,7 @@ var log = CommonUtils.log;
 import * as cli from "../../definitions/cli";
 import ReleaseFile = cli.ReleaseFile;
 
-var coreReleaseHook: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand?: cli.IReleaseCommand, sdk?: AccountManager): Promise<cli.IReleaseCommand> => {
+var coreReleaseHook: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand: cli.IReleaseCommand, sdk: AccountManager): Promise<cli.IReleaseCommand> => {
     return Q(<void>null)
         .then(() => {
             var releaseFiles: ReleaseFile[] = [];

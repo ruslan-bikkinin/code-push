@@ -17,7 +17,7 @@ interface CodeSigningClaims {
     contentHash: string;
 }
 
-var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand?: cli.IReleaseCommand, sdk?: AccountManager): q.Promise<cli.IReleaseCommand> => {
+var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand: cli.IReleaseCommand, sdk: AccountManager): q.Promise<cli.IReleaseCommand> => {
     if (!currentCommand.signingKeyPath) {
         return q.resolve<cli.IReleaseCommand>(currentCommand);
     }
