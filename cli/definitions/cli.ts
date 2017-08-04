@@ -225,6 +225,12 @@ export interface ISessionRemoveCommand extends ICommand {
 
 export type ReleaseHook = (currentCommand: IReleaseCommand, originalCommand: IReleaseCommand, sdk: AccountManager) => Q.Promise<IReleaseCommand|void>;
 
+export interface IReleaseHooks {
+    signing: ReleaseHook,
+    coreRelease: ReleaseHook,
+    [key: string]: ReleaseHook
+}
+
 export interface ReleaseFile {
     sourceLocation: string;     // The current location of the file on disk
     targetLocation: string;     // The desired location of the file within the zip

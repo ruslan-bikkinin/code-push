@@ -72,7 +72,7 @@ var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalComman
                 claimVersion: CURRENT_CLAIM_VERSION,
                 contentHash: hash
             };
-
+            
             return q.nfcall<string>(jwt.sign, claims, signingKey, { algorithm: "RS256" })
                 .catch((err: Error) => {
                     return q.reject<string>(new Error("The specified signing key file was not valid"));
@@ -93,7 +93,8 @@ var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalComman
             return deferred.promise;
         })
         .then(() => { return currentCommand; })
-        .catch((err: Error) => {
+        .catch((err: Error) => {           
+            
             err.message = `Could not sign package: ${err.message}`;
             return q.reject<cli.IReleaseCommand>(err);
     });

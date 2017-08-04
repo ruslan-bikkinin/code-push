@@ -1,8 +1,23 @@
-import {ReleaseHook} from "../../definitions/cli";
+import {IReleaseHooks, ReleaseHook} from "../../definitions/cli";
 
-var hooks: ReleaseHook[] = [
-  require('./signing'),
-  require('./core-release'),
-];
+export class ReleaseHooks {
+  
+  public hooks: IReleaseHooks;
 
-export default hooks;
+  public constructor(hooks: IReleaseHooks) {
+    this.hooks = hooks;
+  }
+  
+  public toArray(): ReleaseHook[] {
+    return Object.keys(this.hooks).map<ReleaseHook>((key: string) => {
+      return this.hooks[key];
+    });
+  }
+}
+
+var releaseHooks = new ReleaseHooks({
+  signing: require('./signing'),
+  coreRelease: require('./core-release'),
+});
+
+export default releaseHooks;

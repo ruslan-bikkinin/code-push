@@ -5,8 +5,9 @@ import * as path from "path";
 import Promise = Q.Promise;
 import * as codePush from "code-push/script/types";
 import * as cli from "../definitions/cli";
-import * as cmdexec from "../script/command-executor";
 import * as os from "os";
+import * as cmdexec from "../script/command-executor";
+import * as fs from "fs";
 
 function assertJsonDescribesObject(json: string, object: Object): void {
     // Make sure JSON is indented correctly
@@ -258,6 +259,9 @@ describe("CLI", () => {
     var spawn: Sinon.SinonStub;
     var wasConfirmed = true;
     const INVALID_RELEASE_FILE_ERROR_MESSAGE: string = "It is unnecessary to package releases in a .zip or binary file. Please specify the direct path to the update content's directory (e.g. /platforms/ios/www) or file (e.g. main.jsbundle).";
+    const PUBLIC_KEY_PATH = path.join(__dirname, "resources", "sign-keys/public.pem");
+    const PRIVATE_KEY_PATH = path.join(__dirname, "resources", "sign-keys/private.pem");
+    const INVALID_PRIVATE_KEY_PATH = path.join(__dirname, "resources", "sign-keys/invalid-private-key.pem");
 
     beforeEach((): void => {
         wasConfirmed = true;
@@ -265,7 +269,7 @@ describe("CLI", () => {
         sandbox = sinon.sandbox.create();
 
         sandbox.stub(cmdexec, "confirm", (): Promise<boolean> => Q(wasConfirmed));
-        sandbox.stub(cmdexec, "createEmptyTempReleaseFolder", (): Promise<void> => Q(<void>null));
+        //sandbox.stub(cmdexec, "createEmptyTempReleaseFolder", (): Promise<void> => Q(<void>null));
         log = sandbox.stub(cmdexec, "log", (message: string): void => { });
         spawn = sandbox.stub(cmdexec, "spawn", (command: string, commandArgs: string[]): any => {
             return {
@@ -1744,6 +1748,112 @@ describe("CLI", () => {
             })
             .done();
     });
+  
+    it("release-react fails if private key path invalid", (done: MochaDone): void => {
+        var command: cli.IReleaseReactCommand = {
+            type: cli.CommandType.releaseReact,
+            appName: "a",
+            appStoreVersion: null,
+            deploymentName: "Staging",
+            description: "Test invalid entryFile",
+            mandatory: false,
+            rollout: null,
+            platform: "ios",
+            signingKeyPath: "this/path/does/not/exists"
+        };
+
+        ensureInTestAppDirectory();
+
+        var сoreReleaseHook: Sinon.SinonSpy = sandbox.spy(cmdexec.releaseHooks.hooks, "coreRelease");
+
+        cmdexec.execute(command)
+            .then(() => {
+                done(new Error("Did not throw error."));
+            })
+            .catch((err) => {
+                assert.equal(err.message, "Could not sign package: The path specified for the signing key (\"this/path/does/not/exists\") was not valid");
+                sinon.assert.notCalled(сoreReleaseHook);
+                done();
+            })
+            .done();
+    });
+
+    it("release-react fails if private key invalid", (done: MochaDone): void => {
+        var package = path.join(os.tmpdir(), "CodePush");
+        var command: cli.IReleaseReactCommand = {
+            type: cli.CommandType.releaseReact,
+            appName: "a",
+            appStoreVersion: null,
+            deploymentName: "Staging",
+            description: "Test invalid entryFile",
+            mandatory: false,
+            rollout: null,
+            platform: "ios",
+            signingKeyPath: INVALID_PRIVATE_KEY_PATH,
+            package: package
+        };
+
+        if (!fs.existsSync(package)){
+            fs.mkdirSync(package);
+        }
+
+        ensureInTestAppDirectory();
+
+        var сoreReleaseHook: Sinon.SinonSpy = sandbox.spy(cmdexec.releaseHooks.hooks, "coreRelease");
+
+        cmdexec.execute(command)
+            .then(() => {
+                done(new Error("Did not throw error."));
+            })
+            .catch((err) => {
+                
+                assert.equal(err.message, "Could not sign package: The specified signing key file was not valid");
+                sinon.assert.notCalled(сoreReleaseHook);
+                fs.rmdir(package);
+                done();
+            })
+            .done();
+    });
+
+    // it("release-react generates JWT file with -k option provided", (done: MochaDone): void => {
+    //     var bundleName = "bundle.js";
+    //     var command: cli.IReleaseReactCommand = {
+    //         type: cli.CommandType.releaseReact,
+    //         appName: "a",
+    //         appStoreVersion: null,
+    //         bundleName: bundleName,
+    //         deploymentName: "Staging",
+    //         description: "Test default entry file",
+    //         mandatory: false,
+    //         rollout: null,
+    //         platform: "android",
+    //         signingKeyPath: PRIVATE_KEY_PATH
+    //     };
+
+    //     ensureInTestAppDirectory();
+
+    //     var release: Sinon.SinonSpy = sandbox.stub(cmdexec, "release", () => { return Q(<void>null) });
+
+    //     cmdexec.execute(command)
+    //         .then(() => {
+    //             var releaseCommand: cli.IReleaseCommand = <any>command;
+    //             releaseCommand.package = path.join(os.tmpdir(), "CodePush");
+    //             releaseCommand.appStoreVersion = "1.2.3";
+
+    //             sinon.assert.calledOnce(spawn);
+    //             var spawnCommand: string = spawn.args[0][0];
+    //             var spawnCommandArgs: string = spawn.args[0][1].join(" ");
+    //             assert.equal(spawnCommand, "node");
+    //             assert.equal(
+    //                 spawnCommandArgs,
+    //                 `--foo=bar --baz ${path.join("node_modules", "react-native", "local-cli", "cli.js")} bundle --assets-dest ${path.join(os.tmpdir(), "CodePush")} --bundle-output ${path.join(os.tmpdir(), "CodePush", bundleName)} --dev false --entry-file index.ios.js --platform ios`
+    //             );
+    //             assertJsonDescribesObject(JSON.stringify(release.args[0][0], /*replacer=*/ null, /*spacing=*/ 2), releaseCommand);
+
+    //             done();
+    //         })
+    //         .done();
+    // });
 
     it("sessionList lists session name and expires fields", (done: MochaDone): void => {
         var command: cli.IAccessKeyListCommand = {

@@ -25,7 +25,11 @@ var which = require("which");
 import wordwrap = require("wordwrap");
 import { CommonUtils } from "./common-utils";
 import * as cli from "../definitions/cli";
-import hooks from "./release-hooks/index";
+
+import releaseHooks from "./release-hooks/index";
+var hooks = releaseHooks.toArray();
+export {releaseHooks};
+
 import { AccessKey, Account, App, CodePushError, CollaboratorMap, CollaboratorProperties, Deployment, DeploymentMetrics, Headers, Package, PackageInfo, Session, UpdateMetrics } from "code-push/script/types";
 
 var configFilePath: string = path.join(process.env.LOCALAPPDATA || process.env.HOME, ".code-push.config");
