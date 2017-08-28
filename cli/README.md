@@ -292,6 +292,7 @@ code-push release <appName> <updateContents> <targetBinaryVersion>
 [--mandatory]
 [--noDuplicateReleaseError]
 [--rollout <rolloutPercentage>]
+[--privateKeyPath <pathToPrivateKey>]
 ```
 
 #### App name parameter
@@ -409,6 +410,12 @@ This specifies the percentage of users (as an integer between `1` and `100`) tha
 
 *NOTE: This parameter can be set using either `--rollout` or `-r`*
 
+#### Private key path parameter
+
+Code push supports s.c "code-sign bundles" as additional data integrity checking mechanism together with content hashes checking mechanism. Developer generates pair: public/private key. Developer provides private key to CLI which will be used to generate signature of hash of update bundle. This signature will be distributed within update bundle. Then this signature will be verified using public key distributed within application binary during update installation on users devices. If private key path parameter will be omitted signature verification will be ignored.
+
+* NOTE: This mechanism supports only for React Native applications.*
+
 ### Releasing Updates (React Native)
 
 ```shell
@@ -428,6 +435,7 @@ code-push release-react <appName> <platform>
 [--sourcemapOutput <sourcemapOutput>]
 [--targetBinaryVersion <targetBinaryVersion>]
 [--rollout <rolloutPercentage>]
+[--privateKeyPath <pathToPrivateKey>]
 ```
 
 The `release-react` command is a React Native-specific version of the "vanilla" [`release`](#releasing-app-updates) command, which supports all of the same parameters (e.g. `--mandatory`, `--description`), yet simplifies the process of releasing updates by performing the following additional behavior:
@@ -530,6 +538,10 @@ code-push release-react MyApp-iOS ios -p "./foo/bar/MyFile.plist"
 ```
 
 *NOTE: This parameter can be set using either --plistFile or -p*
+
+#### Private key path parameter
+
+This is the same parameter as the one described in the [above section](#private-key-path-parameter).
 
 #### Plist file prefix parameter (iOS only)
 
