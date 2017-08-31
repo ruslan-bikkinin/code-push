@@ -26,7 +26,7 @@ CodePush is a cloud service that enables Cordova and React Native developers to 
 * [Rolling Back Updates](#rolling-back-updates)
 * [Viewing Release History](#viewing-release-history)
 * [Clearing Release History](#clearing-release-history)
-
+* [Code Signing](#code-signing)
 [[Chinese version 中文版]](./README-cn.md)
 
 <!-- CLI Catalog -->
@@ -412,9 +412,11 @@ This specifies the percentage of users (as an integer between `1` and `100`) tha
 
 #### Private key path parameter
 
-Code push supports s.c "code-sign bundles" as additional data integrity checking mechanism together with content hashes checking mechanism. Developer generates pair: public/private key. Developer provides private key to CLI which will be used to generate signature of hash of update bundle. This signature will be distributed within update bundle. Then this signature will be verified using public key distributed within application binary during update installation on users devices. If private key path parameter will be omitted signature verification will be ignored.
+This parameter specifies path to the private key file which will be used to generate signature of update. If private key path parameter will be omitted signature verification in code-push plugin will be ignored.
 
-* NOTE: This mechanism supports only for React Native applications.*
+Please refer to [Code Signing section](#code-signing) for more details about Code Signing feature.
+
+* NOTE: This option is supported only for React Native applications on Android and iOS platforms.*
 
 ### Releasing Updates (React Native)
 
@@ -856,3 +858,116 @@ code-push deployment clear <appName> <deploymentName>
 ```
 
 After running this command, client devices configured to receive updates using its associated deployment key will no longer receive the updates that have been cleared. This command is irreversible, and therefore should not be used in a production deployment.
+
+## Code Signing
+
+### What is it?
+
+Code signing is an option to give developers an ability to control data integrity of bundles which they are releasing using digital signature.
+
+### Why do we need this?
+
+Providing developer with signing mechanism can solve such problems as:
+
+* Man In The Middle (MiTM) attack, which can alter content of JS Bundle
+* CodePush service, as a known and valid middleman, might alter the JS bundle
+
+### How does it work?
+
+Developer generates key pair: private key will be used for signing bundles, public key - for bundle signature verification. Private keys will be used only by CodePush cli to sign bundles during `release` and `release-react` commands. Public keys should be provided within binary code of application. The entire control over the generation and management of keys is completely placed in the hands of the developer.
+
+At the end of release command cli computes bundle's content hash and place it into JWT signed by private key provided by developer. At that moment application update will contain one additional file named `.codepushrelease`. Then during update installation in application codepush plugin will verify JWT signature using public key if it is configured within application. If verification fails, update will not be installed.
+
+### Requirements for using this feature
+
+If you are planning to use this feature you need to do the following:
+
+1. Produce new binary update including 
+   * update of codepush plugin to the version that support Code Signing;
+   * configure code-push sdk to use public key (please, refer relevent TODO section for details);
+2. Produce new CodePush update targeting new binary version (which should include corresponding public key) signed by private key via CLI;
+
+Please refer to our compatibility tables to identify if code-signing feature is supported within your SDK/CLI:
+
+|CodePush Component|Version from which Code Signing is supporting|Supported Platform|
+|----|----|----|
+|`code-push` cli|TODO||
+|`react-native-code-push` plugin|TODO|Android, iOS|
+|`cordova-plugin-code-push` plugin|**Not supported**|**Not supported**|
+
+### Key generation
+
+Code Signing supports PEM encoded RSA keys (non-certificates) for signing. You can generate them via openssl as shown below:
+
+```shell
+# generate private RSA key and write it to private.pem file
+openssl genrsa -out private.pem
+
+# export public key from private.pem into public.pem
+openssl rsa -pubout -in private.pem -out public.pem
+```
+
+Generated keys example:
+
+```shell
+# public key
+-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4moC3GsqF7YISFMQ0fnU
+0rUF2xhxNqSGx9/GTxCynsQhR3hceroDXj3rAOTxnNkePB27uZfRDHrH3/LLoj9V
+k2ghKRtfjDwXa85uDK8slSQDB9ZlD1TLQEJDZpKr1OTXY9VwbgtFaotSXoFmG3MO
+RQeALCbrAgDxQ5Q2kJn6rfBuBoszfUz1qZqrlrY74Axerv1/UtTjL8uyF5r00Bxj
+kvTveC2Pm5A3kq6QANktgfKWy9Ugs/4ykZF7fxfH+ukJW+iXwLACrdfzhegg/41H
+5w06m30h0jqhIBZ3nbj5MN+qVbANHJMjz+fXqXx1Ovr1DfGtdKOku/BTWDxojCl1
+iwIDAQAB
+-----END PUBLIC KEY-----
+
+# private key
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA4moC3GsqF7YISFMQ0fnU0rUF2xhxNqSGx9/GTxCynsQhR3hc
+eroDXj3rAOTxnNkePB27uZfRDHrH3/LLoj9Vk2ghKRtfjDwXa85uDK8slSQDB9Zl
+D1TLQEJDZpKr1OTXY9VwbgtFaotSXoFmG3MORQeALCbrAgDxQ5Q2kJn6rfBuBosz
+fUz1qZqrlrY74Axerv1/UtTjL8uyF5r00BxjkvTveC2Pm5A3kq6QANktgfKWy9Ug
+s/4ykZF7fxfH+ukJW+iXwLACrdfzhegg/41H5w06m30h0jqhIBZ3nbj5MN+qVbAN
+HJMjz+fXqXx1Ovr1DfGtdKOku/BTWDxojCl1iwIDAQABAoIBAQCdwf/8VS8fFlbv
+DfHKXKlNp5RM9Nrtl/XRjro+nQPYXBBUHClT2gg+wiXcmalAAIhwmscSqhWe/G4I
+PMRmaHrYGtYALnKE49nt5AgKDoSh5lW2QExqQkrcm08bSVcxH8J0bWPJSVE0y564
++rCKr8BhmLhWC0f0PXPeAoeCeceRKYX2oDgO8A0yZRSQUdRWiXOiQ4mUQ3IPCmBc
+gD1JJNZ5kR4O904PZz5pbgyvN2t5BKOgLKq+x+8Pa8Rb21rFZKMHO8W04oKaRiGs
+f4xwOBAWDOfzDKJzT5xepcPyycgjxcuvyKB2g8biWnDGGOTxDgqMX+R4XeP1aISC
+h9bzfRoBAoGBAPREuPhIXRJOsIgSWAAiC5vhLZ9wWELWG95eibQm2SfpY4F0sPpE
+lNQJ4yzC7J4BiApFzs1yxwwRmgpVd+wF9iMb4NSzaiTM7fju/Xv4aGhBqRXEokGF
+v3QxIlbAwBqeL0rJAAadjbUTTO/u6sC80LI3bfPrn/z1hupZQGR559gjAoGBAO1J
+xQ2ODVS4dSH2P+Ocd9LiUBPGyV97+MFixh6z1c2Fd3bNuiIhCxkrng45Dq0CkX84
+nPUvtYxEQZoFvyB7gAm0SVlLHnJwBiq+Mp9g0UXSy6rZbjhiFkQs1W/W+Z2OIDsC
+y+uXZT7No/J9VyjdrWzZJaBImO8/E4NONXWn8M95AoGACH97j+e0lTZ3ncRFm3uT
+u9CRrcJSz8BzJ8FSORpA48qS06YjohFQvC+734rIgJa9DN5w22Tq19ik60cd7PAo
+KACISd4UC0O147ssxmtV9oqSP1ef7XehuYEcGLiL9mEadBeaEKDalToeqxo8wIfR
+GuIiySGhZ0ODdhO00coL7tECgYBargddD70udDNnICj4PbJY5928QQpxr/m3RZz6
+3LTHDstBnosUQdZw7wc+3jUqjsG1gZgR5wKVMPx09N8+dZPPoZMqSZfAGelxajAE
+UkaHTXBBwUfqyilCMnP6gofv2wGcK4xsYvXxEzslDxtA5b5By5Yic7vmKg+17Sxm
+4yAW2QKBgDyEUzXq3Rrm7ZT720pPhuQDDSO0eHe1L1MUjTRsJ96GkIl0iqQCVgK8
+A/6rFFTEeVf8L6GNMTwdtnDFz/CqIU+K1X4HLXmUY2suffWVxZ4KYqiEszCbyrdO
+puayMcrx2unhKQyDYjUvD8GxHyquA+p52KDke2TkKfDxfzv0WOE1
+-----END RSA PRIVATE KEY-----
+```
+
+### Releasing signed update
+
+To release signed update you should use `--privateKeyPath` (or simply `-k`) option for `release` or `release-react` command.
+
+### FAQ and troubleshooting
+
+Q: I updated code push cli to newer version, but don't want to use Code Signing, does it breaks something for my applications?
+A: No, if you will be ignoring Code Signing at all nothing will be changed for your applications.
+
+Q: I configure public key for my application, but forget to sign update with private key during release, what will happen?
+A: Your update will be rolled out when one of applications tried to install update. To fix this just create new signed update.
+
+Q: I forgot to configure public key for my application, but released unsigned update, what will happen?
+A: Signature verification will be skipped, warning into application log will be written.
+
+Q: I released new signed update, but forgot to produce new binary update with configured public key for my application, what will happen?
+A: Application with out of dated Code Push SDK will refuse to install this update due to hash mismatch and roll out it. Hash mismatch will be appeared because Code Signing feature was demanded changes in hashing mechanism on Code Push Server side as SDK side as well to ignore signature file during hashing. That's why is so important to prepare new binary update with incremented major version to prevent older applications to install updates contains signature file.
+
+Q: Code Push Cordova SDK is not support Code Signing, but i can sign update for my Cordova using general `release` command, what will happen if I will do that?
+A: Yes, you can sign your update using general `release` command even for Cordova bundles because general command can not identify which framework where used to prepare them. In practice that mean, that you will face with hashing mismatch problem described in previous question. To prevent this problem **DO NOT** use --privateKeyPath (or -k) option to release update for Cordova based applications. If for some reason no matter what you did it, just release new update without using --privateKeyPath (or -k) option.
