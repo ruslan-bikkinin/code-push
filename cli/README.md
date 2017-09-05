@@ -957,17 +957,26 @@ To release signed update you should use `--privateKeyPath` (or simply `-k`) opti
 
 ### FAQ and troubleshooting
 
-Q: I updated code push cli to newer version, but don't want to use Code Signing, does it breaks something for my applications?
-A: No, if you will be ignoring Code Signing at all nothing will be changed for your applications.
+Q: I've updated code push CLI to newer version but don't want to use Code Signing feature. Does it break something for my existing applications?
 
-Q: I configure public key for my application, but forget to sign update with private key during release, what will happen?
-A: Your update will be rolled out when one of applications tried to install update. To fix this just create new signed update.
+A: No, its safe to ignore Code Signing feature at all. So nothing should be changed for your existing applications.
 
-Q: I forgot to configure public key for my application, but released unsigned update, what will happen?
-A: Signature verification will be skipped, warning into application log will be written.
 
-Q: I released new signed update, but forgot to produce new binary update with configured public key for my application, what will happen?
-A: Application with out of dated Code Push SDK will refuse to install this update due to hash mismatch and roll out it. Hash mismatch will be appeared because Code Signing feature was demanded changes in hashing mechanism on Code Push Server side as SDK side as well to ignore signature file during hashing. That's why is so important to prepare new binary update with incremented major version to prevent older applications to install updates contains signature file.
+Q: I've configured public key for my application but forgot to sign update with my private key during release. What should happen?
 
-Q: Code Push Cordova SDK is not support Code Signing, but i can sign update for my Cordova using general `release` command, what will happen if I will do that?
-A: Yes, you can sign your update using general `release` command even for Cordova bundles because general command can not identify which framework where used to prepare them. In practice that mean, that you will face with hashing mismatch problem described in previous question. To prevent this problem **DO NOT** use --privateKeyPath (or -k) option to release update for Cordova based applications. If for some reason no matter what you did it, just release new update without using --privateKeyPath (or -k) option.
+A: Your update will be rejected when will try to apply it. To fix this you should just release new update signed with correct private key.
+
+
+Q: I've forgotten to configure public key for my application and released unsigned update. What should happen in this case?
+
+A: Signature verification will be skipped, warning would be written to the application log.
+
+
+Q: I've released new signed update but forgot to produce new binary update with configured public key and updated SDK for my application. What should happen?
+
+A: Application with out of date Code Push SDK (which do not support code-signing feature) will refuse to install this update due to hashes mismatch and reject it. Hashes mismatch will be introduced due to Code Signing feature requires some changes in hashing mechanism on Code Push Service side as on SDK side as well to ignore JWT signature file during hashing. That's why it is important to prepare new binary update with incremented app version to prevent older applications from installing updates that contains JWT signature file. In other words you should configure your releases so that only app running latest react-native-code-push SDK should receive such updates.
+
+
+Q: Code Push Cordova SDK doesn't support Code Signing feature but I can sign update for my Cordova using general `release` command. What should happen if I'll do that?
+
+A: Yes, you can sign your update using general `release` command even for Cordova bundles because general command is unable to identify which framework was used to prepare new release. In practice that mean that you will face with hashing mismatch problem described in question above. To prevent this problem **DO NOT** use --privateKeyPath (or -k) option to release update for Cordova based applications. If you accidentally did it - just release new update without --privateKeyPath (or -k) parameter and that's it.
