@@ -412,9 +412,9 @@ This specifies the percentage of users (as an integer between `1` and `100`) tha
 
 #### Private key path parameter
 
-This parameter specifies path to the private key file which will be used to generate signature of update. If private key path parameter will be omitted signature verification in code-push plugin will be ignored.
+This parameter specifies a path to the private key file used to generate the signature of the update. If the private key path parameter is omitted, signature verification in the code-push plugin will be ignored.
 
-Please refer to [Code Signing section](#code-signing) for more details about Code Signing feature.
+Please refer to the [Code Signing section](#code-signing) for more details on the Code Signing feature.
 
 * NOTE: This option is supported only for React Native applications on Android and iOS platforms.*
 
@@ -863,29 +863,26 @@ After running this command, client devices configured to receive updates using i
 
 ### What is it?
 
-Code signing is an option to give developers an ability to control data integrity of bundles which they are releasing using digital signature.
+Code signing is a way of creating ditigal signatures for bundles that can later be validated on the client-side prior to installation.
 
-### Why do we need this?
+### Why do we need it?
 
-Providing developer with signing mechanism can solve such problems as:
-
-* Man In The Middle (MiTM) attack, which can alter content of JS Bundle
-* CodePush service, as a known and valid middleman, might alter the JS bundle
+Developers want to know that the code they ship is the code that they wrote. Code signing is the primary mechanism for providing such assurance and can help mitigate or eliminate a whole class of man-in-the-middle attacks.
 
 ### How does it work?
 
-Developer generates key pair: private key will be used for signing bundles, public key - for bundle signature verification. Private keys will be used only by CodePush cli to sign bundles during `release` and `release-react` commands. Public keys should be provided within binary code of application. The entire control over the generation and management of keys is completely placed in the hands of the developer.
+First the developer generates an asyemetric key pair: the private key will be used for signing bundles; the public key for bundle signature verification. The CodePush cli then uses the private key to sign bundles during `release` and `release-react` commands. The public key is shipped with the mobile application. Control over the generation and management of keys is in the hands of the developer.
 
-At the end of release command cli computes bundle's content hash and place it into JWT signed by private key provided by developer. At that moment application update will contain one additional file named `.codepushrelease`. Then during update installation in application codepush plugin will verify JWT signature using public key if it is configured within application. If verification fails, update will not be installed.
+At the end of release command, the cli computes the bundle's content hash and places this value into a JWT signed with the private key. When the codepush plugin downloads a bundle to a device, it checks the `.codepushrelease` file and validates the JWT signature using the public key. If validation fails, the update is not installed.
 
 ### Requirements for using this feature
 
 If you are planning to use this feature you need to do the following:
 
 1. Produce new binary update including 
-   * update of codepush plugin to the version that support Code Signing;
-   * configure code-push sdk to use public key (please, refer relevent TODO section for details);
-2. Produce new CodePush update targeting new binary version (which should include corresponding public key) signed by private key via CLI;
+   * updated codepush plugin supporting Code Signing
+   * configure your code-push sdk to use your public key (please, refer relevent TODO section for details)
+2. Produce a new CodePush update that targets the new binary version and specifies a `--privateKeyPath` (or simply `-k`) parameter value
 
 Please refer to our compatibility tables to identify if code-signing feature is supported within your SDK/CLI:
 
@@ -957,32 +954,31 @@ To release signed update you should use `--privateKeyPath` (or simply `-k`) opti
 
 ### FAQ and troubleshooting
 
-Q: I've updated code push CLI to newer version but don't want to use Code Signing feature. Does it break something for my existing applications?
+Q: I've updated my CodePush CLI to the latest version but don't want to use the Code Signing feature. Will the new CLI break my existing applications?
 
-A: No, its safe to ignore Code Signing feature at all. So nothing should be changed for your existing applications.
-
-
-Q: I've configured public key for my application but forgot to sign update with my private key during release. What should happen?
-
-A: Your update will be rejected when will try to apply it. To fix this you should just release new update signed with correct private key.
+A: No, you don't have to use the Code Signing feature at all; you may continue to update your apps as you have in the past.
 
 
-Q: I've forgotten to configure public key for my application and released unsigned update. What should happen in this case?
+Q: I've configured public key for my application but forgot to sign the update with my private key during release. What is going to happen?
 
-A: Signature verification will be skipped, warning would be written to the application log.
-
-
-Q: I've released new signed update but forgot to produce new binary update with configured public key and updated SDK for my application. What should happen?
-
-A: Application with out of date Code Push SDK (which do not support code-signing feature) will refuse to install this update due to hashes mismatch and reject it. Hashes mismatch will be introduced due to Code Signing feature requires some changes in hashing mechanism on Code Push Service side as on SDK side as well to ignore JWT signature file during hashing. That's why it is important to prepare new binary update with incremented app version to prevent older applications from installing updates that contains JWT signature file. In other words you should configure your releases so that only app running latest react-native-code-push SDK should receive such updates.
+A: Your update will be rejected. To fix this you should simply release a new update signed with correct private key.
 
 
-Q: Code Push Cordova SDK doesn't support Code Signing feature but I can sign update for my Cordova using general `release` command. What should happen if I'll do that?
+Q: I've forgotten to configure a public key for my application and released unsigned update. What is going to happen?
 
-A: Yes, you can sign your update using general `release` command even for Cordova bundles because general command is unable to identify which framework was used to prepare new release. In practice that mean that you will face with hashing mismatch problem described in question above. To prevent this problem **DO NOT** use --privateKeyPath (or -k) option to release update for Cordova based applications. If you accidentally did it - just release new update without --privateKeyPath (or -k) parameter and that's it.
+A: Signature verification will be skipped and a warning will be written to the application log.
+
+
+Q: I've released newly signed update, but forgot to release a new binary update with the configured public key and updated SDK. What will happen?
+
+A: An application running a CodePush SDK that doesn't support code signing will reject the update. An application running a CodePush SDK that does support code signing but whose public key is out of date will reject the update. If you sign an update with a private key, make sure that you are releasing only to applications configured with a matching public key.
+
+
+Q: The Code Push Cordova SDK doesn't support the code signing feature but I can sign an update for my Cordova app using the general `release` command. What is going to happen if I do so?
+
+A: Your Cordova clients will reject the update. **DO NOT** use the --privateKeyPath (or -k) option to release updates for Cordova based applications. If you accidentally do so, simply release a new update without the --privateKeyPath (or -k) parameter.
 
 
 Q: I've lost my private key, what should I do in this situation?
 
-A: From official docs: The entire control over the generation and management of keys is completely placed in the hands of the developer. 
-So if you've lost your private key, you need to create new private/public keys pair as described here and release new binary update using new public key, then release CodePush update using new private key.
+A: We do not have a copy of your key so you will need to create new private/public key pair, release a new binary update using the new public key, and then release a CodePush update using your new private key.
