@@ -980,3 +980,9 @@ A: Application with out of date Code Push SDK (which do not support code-signing
 Q: Code Push Cordova SDK doesn't support Code Signing feature but I can sign update for my Cordova using general `release` command. What should happen if I'll do that?
 
 A: Yes, you can sign your update using general `release` command even for Cordova bundles because general command is unable to identify which framework was used to prepare new release. In practice that mean that you will face with hashing mismatch problem described in question above. To prevent this problem **DO NOT** use --privateKeyPath (or -k) option to release update for Cordova based applications. If you accidentally did it - just release new update without --privateKeyPath (or -k) parameter and that's it.
+
+
+Q: I've lost my private key, what should I do in this situation?
+
+A: From official docs: The entire control over the generation and management of keys is completely placed in the hands of the developer. 
+So if you've lost your private key, you need to create new private/public keys pair as described here and release new binary update using new public key, then release CodePush update using new private key.
