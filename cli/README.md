@@ -871,9 +871,9 @@ Developers want to know that the code they ship is the code that they wrote. Cod
 
 ### How does it work?
 
-First the developer generates an asyemetric key pair: the private key will be used for signing bundles; the public key for bundle signature verification. The CodePush cli then uses the private key to sign bundles during `release` and `release-react` commands. The public key is shipped with the mobile application. Control over the generation and management of keys is in the hands of the developer.
+First, the developer generates an asyemetric key pair: the private key will be used for signing bundles; the public key for bundle signature verification. The CodePush cli then uses the private key to sign bundles during `release` and `release-react` commands. The public key is shipped with the mobile application. Control over the generation and management of keys is in the hands of the developer.
 
-At the end of release command, the cli computes the bundle's content hash and places this value into a JWT signed with the private key. When the codepush plugin downloads a bundle to a device, it checks the `.codepushrelease` file and validates the JWT signature using the public key. If validation fails, the update is not installed.
+At the end of release command, the cli computes the bundle's content hash and places this value into a JWT signed with the private key. When the codepush plugin downloads a bundle to a device, it checks the `.codepushrelease` file containing the JWT and validates the JWT signature using the public key. If validation fails, the update is not installed.
 
 ### Requirements for using this feature
 
@@ -894,7 +894,7 @@ Please refer to our compatibility tables to identify if code-signing feature is 
 
 ### Key generation
 
-Code Signing supports PEM encoded RSA keys (non-certificates) for signing. You can generate them via openssl as shown below:
+Code signing supports PEM encoded RSA keys (non-certificates) for signing. You can generate them via openssl as shown below:
 
 ```shell
 # generate private RSA key and write it to private.pem file
@@ -954,7 +954,7 @@ To release signed update you should use `--privateKeyPath` (or simply `-k`) opti
 
 ### FAQ and troubleshooting
 
-Q: I've updated my CodePush CLI to the latest version but don't want to use the Code Signing feature. Will the new CLI break my existing applications?
+Q: I've updated my CodePush CLI to the latest version but don't want to use the code signing feature. Will the new CLI break my existing applications?
 
 A: No, you don't have to use the Code Signing feature at all; you may continue to update your apps as you have in the past.
 
