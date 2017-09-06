@@ -964,7 +964,7 @@ Q: I've configured public key for my application but forgot to sign the update w
 A: Your update will be rejected. To fix this you should simply release a new update signed with correct private key.
 
 
-Q: I've forgotten to configure a public key for my application and released unsigned update. What is going to happen?
+Q: I've forgotten to configure a public key for my application and released signed update. What is going to happen?
 
 A: Signature verification will be skipped and a warning will be written to the application log.
 
