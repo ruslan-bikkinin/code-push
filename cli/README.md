@@ -863,7 +863,7 @@ After running this command, client devices configured to receive updates using i
 
 ### What is it?
 
-Code signing is a way of creating ditigal signatures for bundles that can later be validated on the client-side prior to installation.
+Code signing is a way of creating digital signatures for bundles that can later be validated on the client-side prior to installation.
 
 ### Why do we need it?
 
@@ -871,7 +871,7 @@ Developers want to know that the code they ship is the code that they wrote. Cod
 
 ### How does it work?
 
-First, the developer generates an asyemetric key pair: the private key will be used for signing bundles; the public key for bundle signature verification. The CodePush cli then uses the private key to sign bundles during `release` and `release-react` commands. The public key is shipped with the mobile application. Control over the generation and management of keys is in the hands of the developer.
+First, the developer generates an asymmetric key pair: the private key will be used for signing bundles; the public key for bundle signature verification. The CodePush cli then uses the private key to sign bundles during `release` and `release-react` commands. The public key is shipped with the mobile application. Control over the generation and management of keys is in the hands of the developer.
 
 At the end of release command, the cli computes the bundle's content hash and places this value into a JWT signed with the private key. When the codepush plugin downloads a bundle to a device, it checks the `.codepushrelease` file containing the JWT and validates the JWT signature using the public key. If validation fails, the update is not installed.
 
