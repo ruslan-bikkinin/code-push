@@ -1195,7 +1195,7 @@ export var release = (command: cli.IReleaseCommand): Promise<void> => {
         mandatory: command.mandatory,
         package: command.package,
         rollout: command.rollout,
-        signingKeyPath: command.signingKeyPath,
+        privateKeyPath: command.privateKeyPath,
         type: command.type
     };
 

@@ -18,19 +18,19 @@ interface CodeSigningClaims {
 }
 
 var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalCommand: cli.IReleaseCommand, sdk: AccountManager): q.Promise<cli.IReleaseCommand> => {
-    if (!currentCommand.signingKeyPath) {
+    if (!currentCommand.privateKeyPath) {
         return q.resolve<cli.IReleaseCommand>(currentCommand);
     }
 
-    var signingKey: Buffer;
+    var privateKey: Buffer;
     var signatureFilePath: string;
 
     return q(<void>null)
         .then(() => {
             try {
-                signingKey = fs.readFileSync(currentCommand.signingKeyPath);
+                privateKey = fs.readFileSync(currentCommand.privateKeyPath);
             } catch (err) {
-                return q.reject(new Error(`The path specified for the signing key ("${currentCommand.signingKeyPath}") was not valid`));
+                return q.reject(new Error(`The path specified for the signing key ("${currentCommand.privateKeyPath}") was not valid`));
             }
 
             if (!fs.lstatSync(currentCommand.package).isDirectory()) {
@@ -73,7 +73,7 @@ var sign: cli.ReleaseHook = (currentCommand: cli.IReleaseCommand, originalComman
                 contentHash: hash
             };
 
-            return q.nfcall<string>(jwt.sign, claims, signingKey, { algorithm: "RS256" })
+            return q.nfcall<string>(jwt.sign, claims, privateKey, { algorithm: "RS256" })
                 .catch((err: Error) => {
                     return q.reject<string>(new Error("The specified signing key file was not valid"));
                 });

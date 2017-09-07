@@ -809,7 +809,7 @@ function createCommand(): cli.ICommand {
                     releaseCommand.mandatory = argv["mandatory"];
                     releaseCommand.noDuplicateReleaseError = argv["noDuplicateReleaseError"];
                     releaseCommand.rollout = getRolloutValue(argv["rollout"]);
-                    releaseCommand.signingKeyPath = argv["signingKey"];
+                    releaseCommand.privateKeyPath = argv["privateKeyPath"];
                 }
                 break;
 
@@ -831,7 +831,6 @@ function createCommand(): cli.ICommand {
                     releaseCordovaCommand.rollout = getRolloutValue(argv["rollout"]);
                     releaseCordovaCommand.appStoreVersion = argv["targetBinaryVersion"];
                     releaseCordovaCommand.isReleaseBuildType = argv["isReleaseBuildType"];
-                    releaseCordovaCommand.signingKeyPath = argv["signingKey"];
                 }
                 break;
 
@@ -857,7 +856,7 @@ function createCommand(): cli.ICommand {
                     releaseReactCommand.plistFile = argv["plistFile"];
                     releaseReactCommand.plistFilePrefix = argv["plistFilePrefix"];
                     releaseReactCommand.rollout = getRolloutValue(argv["rollout"]);
-                    releaseReactCommand.signingKeyPath = argv["signingKey"];
+                    releaseReactCommand.privateKeyPath = argv["privateKeyPath"];
                     releaseReactCommand.sourcemapOutput = argv["sourcemapOutput"];
                     releaseReactCommand.outputDir = argv["outputDir"];
                 }

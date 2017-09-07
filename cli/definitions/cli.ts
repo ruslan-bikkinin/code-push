@@ -184,7 +184,7 @@ export interface IReleaseBaseCommand extends ICommand, IPackageInfo {
     appStoreVersion: string;
     deploymentName: string;
     noDuplicateReleaseError?: boolean;
-    signingKeyPath?: string;
+    privateKeyPath?: string;
 }
 
 export interface IReleaseCommand extends IReleaseBaseCommand {
