@@ -1185,31 +1185,43 @@ export var release = (command: cli.IReleaseCommand): Promise<void> => {
 
     throwForInvalidSemverRange(command.appStoreVersion);
 
-    // Copy the command so that the original is not modified
-    var currentCommand: cli.IReleaseCommand = {
-        appName: command.appName,
-        appStoreVersion: command.appStoreVersion,
-        deploymentName: command.deploymentName,
-        description: command.description,
-        disabled: command.disabled,
-        mandatory: command.mandatory,
-        package: command.package,
-        rollout: command.rollout,
-        privateKeyPath: command.privateKeyPath,
-        type: command.type
-    };
+    let confirmContinue: Q.Promise<boolean>;
+    if (command.privateKeyPath) {
+        confirmContinue = confirm("You are going to use code signing which is experimental feature. If it is the first time you sign bundle please make sure that you have configured a public key for your client SDK and released new binary version of your app. Also, be sure that this release is targeting to new binary version. You can find more information about code signing feature here: https://github.com/Microsoft/code-push/blob/master/cli/README.md#code-signing  Do you want to continue?");
+    } else {
+        confirmContinue = Q.resolve(true);
+    }
 
-    var releaseHooksPromise = hooks.reduce((accumulatedPromise: Q.Promise<cli.IReleaseCommand>, hook: cli.ReleaseHook) => {
-        return accumulatedPromise
-            .then((modifiedCommand: cli.IReleaseCommand) => {
-                currentCommand = modifiedCommand || currentCommand;
-                return hook(currentCommand, command, sdk);
-            });
-    }, Q(currentCommand));
+    return confirmContinue.then((result: boolean) => {
+        if (!result) {
+            process.exit();
+        }
+        // Copy the command so that the original is not modified
+        var currentCommand: cli.IReleaseCommand = {
+            appName: command.appName,
+            appStoreVersion: command.appStoreVersion,
+            deploymentName: command.deploymentName,
+            description: command.description,
+            disabled: command.disabled,
+            mandatory: command.mandatory,
+            package: command.package,
+            rollout: command.rollout,
+            privateKeyPath: command.privateKeyPath,
+            type: command.type
+        };
 
-    return releaseHooksPromise
-        .then(() => { })
-        .catch((err: CodePushError) => releaseErrorHandler(err, command));
+        var releaseHooksPromise = hooks.reduce((accumulatedPromise: Q.Promise<cli.IReleaseCommand>, hook: cli.ReleaseHook) => {
+            return accumulatedPromise
+                .then((modifiedCommand: cli.IReleaseCommand) => {
+                    currentCommand = modifiedCommand || currentCommand;
+                    return hook(currentCommand, command, sdk);
+                });
+        }, Q(currentCommand));
+
+        return releaseHooksPromise
+            .then(() => { })
+            .catch((err: CodePushError) => releaseErrorHandler(err, command));
+    });
 }
 
 export var releaseCordova = (command: cli.IReleaseCordovaCommand): Promise<void> => {
