@@ -881,15 +881,15 @@ If you are planning to use this feature you need to do the following:
 
 1. Produce new binary update including 
    * updated codepush plugin supporting Code Signing
-   * configure your code-push sdk to use your public key (please, refer relevent TODO section for details)
+   * configure your code-push sdk to use your public key (please, refer relevent [iOS](https://github.com/microsoft/react-native-code-push/blob/master/docs/api-ios.md) or [Android](https://github.com/microsoft/react-native-code-push/blob/master/docs/api-android.md) SDK section for details)
 2. Produce a new CodePush update that targets the new binary version and specifies a `--privateKeyPath` (or simply `-k`) parameter value
 
 Please refer to our compatibility tables to identify if code-signing feature is supported within your SDK/CLI:
 
 |CodePush Component|Version from which Code Signing is supporting|Supported Platform|
 |----|----|----|
-|`code-push` cli|TODO||
-|`react-native-code-push` plugin|TODO|Android, iOS|
+|`code-push` cli|2.1.0||
+|`react-native-code-push` plugin|5.1.0|Android, iOS|
 |`cordova-plugin-code-push` plugin|**Not supported**|**Not supported**|
 
 ### Key generation
