@@ -896,7 +896,7 @@ Please refer to our compatibility tables to identify if code-signing feature is 
 |CodePush SDK|Version from which Code Signing is supporting|Supported Platforms|Minimal CodePush CLI version required|
 |----|----|----|----|
 |[`react-native-code-push`](https://github.com/Microsoft/react-native-code-push)|5.1.0|Android, iOS|2.1.0|
-|[`cordova-plugin-code-push`](https://github.com/Microsoft/cordova-plugin-code-push)|TO_DO|Android, iOS|TO_DO|
+|[`cordova-plugin-code-push`](https://github.com/Microsoft/cordova-plugin-code-push)|1.10.0|Android, iOS|2.1.2|
 
 ### Key generation
 
